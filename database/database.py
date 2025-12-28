@@ -1,8 +1,11 @@
 from fastapi.params import Depends
-from pydantic import BaseModel
+from fastapi import APIRouter
 from sqlalchemy.ext.asyncio import create_async_engine,async_sessionmaker, AsyncSession
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from typing import Annotated
+
+
+
+router = APIRouter()
 
 engine = create_async_engine("sqlite+aiosqlite:///database.db")
 
@@ -13,30 +16,3 @@ async def get_session():
         yield session
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
-
-class Base(DeclarativeBase):
-    pass
-
-class UserModel(Base):
-    __tablename__ = "users"
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    first_name: Mapped[str]
-    last_name: Mapped[str]
-    patronymic: Mapped[str]
-    login: Mapped[str]
-    password: Mapped[str]
-    address: Mapped[str]
-    flat: Mapped[int]
-    is_admin: Mapped[bool]
-
-class UserSchema(BaseModel):
-    id: int
-    first_name: str
-    last_name: str
-    patronymic: str
-    login: str
-    password: str
-    address: str
-    flat: int
-    is_admin: bool
-
