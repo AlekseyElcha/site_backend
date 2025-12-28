@@ -26,7 +26,6 @@ async def get_all_users(session: SessionDep):
 @app.post("/add_user")
 async def add_user_to_database(session: SessionDep, user: UserSchema):
     new_user = UserModel(
-        id = user.id,
         first_name=user.first_name,
         last_name=user.last_name,
         patronymic=user.patronymic,

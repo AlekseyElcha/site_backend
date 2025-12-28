@@ -19,7 +19,7 @@ class Base(DeclarativeBase):
 
 class UserModel(Base):
     __tablename__ = "users"
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     first_name: Mapped[str]
     last_name: Mapped[str]
     patronymic: Mapped[str]
