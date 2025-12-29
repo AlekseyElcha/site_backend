@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Профиль - Chat Application</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>Chat Application</h1>
+            <nav class="nav" id="mainNav">
+                <a href="/static/chat.html">Чат</a>
+                <a href="/static/profile.html" class="active">Профиль</a>
+                <a href="#" id="logoutBtn">Выход</a>
+            </nav>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="user-info" id="userInfo">
+            <div>
+                <span class="user-name" id="userName">Загрузка...</span>
+                <span class="user-role" id="userRole">Пользователь</span>
+            </div>
+        </div>
+
+        <div class="form-container">
+            <h2 class="text-center mb-3">Управление профилем</h2>
+            
+            <div id="alert-container"></div>
+            
+            <!-- Profile Information -->
+            <div class="profile-section">
+                <h3>Информация профиля</h3>
+                <form id="profileForm">
+                    <div class="form-group">
+                        <label for="firstName">Имя:</label>
+                        <input type="text" id="firstName" name="first_name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="lastName">Фамилия:</label>
+                        <input type="text" id="lastName" name="last_name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="patronymic">Отчество:</label>
+                        <input type="text" id="patronymic" name="patronymic" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="login">Логин:</label>
+                        <input type="text" id="login" name="login" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="address">Адрес:</label>
+                        <input type="text" id="address" name="address" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="flat">Квартира:</label>
+                        <input type="number" id="flat" name="flat" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-full" id="updateProfileBtn">
+                        <span id="updateText">Обновить профиль</span>
+                        <span id="updateSpinner" class="loading hidden"></span>
+                    </button>
+                </form>
+            </div>
+            
+            <!-- Password Change -->
+            <div class="profile-section mt-3">
+                <h3>Изменение пароля</h3>
+                <form id="passwordForm">
+                    <div class="form-group">
+                        <label for="currentPassword">Текущий пароль:</label>
+                        <input type="password" id="currentPassword" name="current_password" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newPassword">Новый пароль:</label>
+                        <input type="password" id="newPassword" name="new_password" required minlength="6">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirmPassword">Подтвердите новый пароль:</label>
+                        <input type="password" id="confirmPassword" name="confirm_password" required minlength="6">
+                    </div>
+                    
+                    <button type="submit" class="btn btn-secondary btn-full" id="changePasswordBtn">
+                        <span id="passwordText">Изменить пароль</span>
+                        <span id="passwordSpinner" class="loading hidden"></span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/password-toggle.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check authentication
+            if (!checkAuth()) {
+                window.location.href = '/static/login.html';
+                return;
+            }
+            
+            const userData = getUserData();
+            
+            // Update navigation for admin users
+            if (userData.is_admin) {
+                const chatLink = document.querySelector('nav a[href="/static/chat.html"]');
+                if (chatLink) {
+                    chatLink.href = '/static/admin.html';
+                    chatLink.textContent = 'Админ панель';
+                }
+            }
+            
+            // Initialize profile page
+            initializeProfile();
+        });
+        
+        async function initializeProfile() {
+            const userData = getUserData();
+            
+            // Update user info display
+            document.getElementById('userName').textContent = `${userData.first_name} ${userData.last_name}`;
+            document.getElementById('userRole').textContent = userData.is_admin ? 'Администратор' : 'Пользователь';
+            document.getElementById('userRole').className = userData.is_admin ? 'user-role admin' : 'user-role';
+            
+            // Load current user data
+            await loadUserProfile();
+            
+            // Setup form handlers
+            setupProfileForm();
+            setupPasswordForm();
+            setupLogout();
+        }
+        
+        async function loadUserProfile() {
+            try {
+                const userData = getUserData();
+                
+                // Fill form with current data
+                document.getElementById('firstName').value = userData.first_name || '';
+                document.getElementById('lastName').value = userData.last_name || '';
+                document.getElementById('patronymic').value = userData.patronymic || '';
+                document.getElementById('login').value = userData.login || '';
+                document.getElementById('address').value = userData.address || '';
+                document.getElementById('flat').value = userData.flat || '';
+                
+            } catch (error) {
+                console.error('Error loading profile:', error);
+                showAlert('Ошибка загрузки профиля', 'error');
+            }
+        }
+        
+        function setupProfileForm() {
+            const form = document.getElementById('profileForm');
+            const btn = document.getElementById('updateProfileBtn');
+            const text = document.getElementById('updateText');
+            const spinner = document.getElementById('updateSpinner');
+            
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData.entries());
+                
+                // Convert flat to number
+                data.flat = parseInt(data.flat);
+                
+                console.log('Sending profile update:', data);
+                
+                btn.disabled = true;
+                text.classList.add('hidden');
+                spinner.classList.remove('hidden');
+                
+                try {
+                    const userData = getUserData();
+                    const token = getAuthToken(); // Используем функцию из auth.js
+                    
+                    if (!token) {
+                        showAlert('Ошибка аутентификации. Войдите в систему заново.', 'error');
+                        return;
+                    }
+                    
+                    const response = await fetch(`/ops/edit_user/${userData.id}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok && result.success) {
+                        // Update stored user data
+                        const updatedUserData = { ...userData, ...data };
+                        localStorage.setItem('userData', JSON.stringify(updatedUserData));
+                        
+                        showAlert('Профиль успешно обновлен', 'success');
+                        
+                        // Update display
+                        document.getElementById('userName').textContent = `${data.first_name} ${data.last_name}`;
+                        
+                    } else {
+                        showAlert(result.message || 'Ошибка обновления профиля', 'error');
+                    }
+                    
+                } catch (error) {
+                    console.error('Profile update error:', error);
+                    showAlert('Произошла ошибка при обновлении профиля', 'error');
+                } finally {
+                    btn.disabled = false;
+                    text.classList.remove('hidden');
+                    spinner.classList.add('hidden');
+                }
+            });
+        }
+        
+        function setupPasswordForm() {
+            const form = document.getElementById('passwordForm');
+            const btn = document.getElementById('changePasswordBtn');
+            const text = document.getElementById('passwordText');
+            const spinner = document.getElementById('passwordSpinner');
+            
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const currentPassword = document.getElementById('currentPassword').value;
+                const newPassword = document.getElementById('newPassword').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+                
+                if (newPassword !== confirmPassword) {
+                    showAlert('Новые пароли не совпадают', 'error');
+                    return;
+                }
+                
+                if (newPassword.length < 6) {
+                    showAlert('Пароль должен содержать минимум 6 символов', 'error');
+                    return;
+                }
+                
+                btn.disabled = true;
+                text.classList.add('hidden');
+                spinner.classList.remove('hidden');
+                
+                try {
+                    const userData = getUserData();
+                    const token = getAuthToken(); // Используем функцию из auth.js
+                    
+                    if (!token) {
+                        showAlert('Ошибка аутентификации. Войдите в систему заново.', 'error');
+                        return;
+                    }
+                    
+                    const response = await fetch(`/ops/edit_user/${userData.id}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            password: newPassword
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok && result.success) {
+                        showAlert('Пароль успешно изменен', 'success');
+                        form.reset();
+                    } else {
+                        showAlert(result.message || 'Ошибка изменения пароля', 'error');
+                    }
+                    
+                } catch (error) {
+                    console.error('Password change error:', error);
+                    showAlert('Произошла ошибка при изменении пароля', 'error');
+                } finally {
+                    btn.disabled = false;
+                    text.classList.remove('hidden');
+                    spinner.classList.add('hidden');
+                }
+            });
+        }
+        
+        function setupLogout() {
+            document.getElementById('logoutBtn').addEventListener('click', function(e) {
+                e.preventDefault();
+                logout();
+            });
+        }
+        
+        function showAlert(message, type) {
+            const container = document.getElementById('alert-container');
+            container.innerHTML = `
+                <div class="alert alert-${type}">
+                    ${message}
+                </div>
+            `;
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    container.innerHTML = '';
+                }, 3000);
+            }
+        }
+    </script>
+</body>
+</html>

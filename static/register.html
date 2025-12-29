@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация - Chat Application</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        .field-error {
+            color: #dc3545;
+            font-size: 0.875em;
+            margin-top: 5px;
+            padding: 5px 0;
+        }
+        .form-group input.error {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+        }
+        .form-group input.success {
+            border-color: #28a745;
+            box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+        }
+        #emailHelp {
+            color: #6c757d;
+        }
+        #emailHelp.hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>Chat Application</h1>
+            <nav class="nav">
+                <a href="/static/index.html">Главная</a>
+                <a href="/static/login.html">Вход</a>
+                <a href="/static/register.html" class="active">Регистрация</a>
+            </nav>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="form-container">
+            <h2 class="text-center mb-3">Создание аккаунта</h2>
+            
+            <div id="alert-container"></div>
+            
+            <form id="registerForm">
+                <div class="form-group">
+                    <label for="firstName">Имя:</label>
+                    <input type="text" id="firstName" name="first_name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="lastName">Фамилия:</label>
+                    <input type="text" id="lastName" name="last_name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="patronymic">Отчество:</label>
+                    <input type="text" id="patronymic" name="patronymic" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="login">Email:</label>
+                    <input type="email" id="login" name="login" required placeholder="example@domain.com">
+                    <small id="emailHelp">Введите корректный email адрес</small>
+                    <div id="emailError" class="field-error" style="display: none;"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Пароль:</label>
+                    <input type="password" id="password" name="password" required minlength="6">
+                    <small>Минимум 6 символов</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirmPassword">Подтвердите пароль:</label>
+                    <input type="password" id="confirmPassword" name="confirm_password" required minlength="6">
+                </div>
+                
+                <div class="form-group">
+                    <label for="address">Адрес:</label>
+                    <input type="text" id="address" name="address" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="flat">Квартира:</label>
+                    <input type="number" id="flat" name="flat" required min="1">
+                </div>
+                
+                <button type="submit" class="btn btn-full" id="registerBtn">
+                    <span id="registerText">Создать аккаунт</span>
+                    <span id="registerSpinner" class="loading hidden"></span>
+                </button>
+            </form>
+            
+            <div class="text-center mt-3">
+                <p><small>Уже есть аккаунт? <a href="/static/login.html">Войти</a></small></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/password-toggle.js"></script>
+    <script>
+        // Email validation function
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if already logged in
+            const token = localStorage.getItem('authToken');
+            const userData = localStorage.getItem('userData');
+            
+            if (token && userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    if (user.is_admin) {
+                        window.location.href = '/static/admin.html';
+                    } else {
+                        window.location.href = '/static/chat.html';
+                    }
+                    return;
+                } catch (e) {
+                    localStorage.removeItem('authToken');
+                    localStorage.removeItem('userData');
+                }
+            }
+            
+            // Handle registration form
+            const registerForm = document.getElementById('registerForm');
+            const registerBtn = document.getElementById('registerBtn');
+            const registerText = document.getElementById('registerText');
+            const registerSpinner = document.getElementById('registerSpinner');
+            const alertContainer = document.getElementById('alert-container');
+            const loginInput = document.getElementById('login');
+            const emailError = document.getElementById('emailError');
+            const emailHelp = document.getElementById('emailHelp');
+            
+            // Real-time email validation
+            loginInput.addEventListener('input', function() {
+                const email = loginInput.value.trim();
+                
+                if (email === '') {
+                    // Empty field - show help text
+                    loginInput.classList.remove('error', 'success');
+                    emailError.style.display = 'none';
+                    emailHelp.classList.remove('hidden');
+                } else if (isValidEmail(email)) {
+                    // Valid email
+                    loginInput.classList.remove('error');
+                    loginInput.classList.add('success');
+                    emailError.style.display = 'none';
+                    emailHelp.classList.remove('hidden');
+                } else {
+                    // Invalid email
+                    loginInput.classList.remove('success');
+                    loginInput.classList.add('error');
+                    emailError.textContent = 'Неверный формат email адреса';
+                    emailError.style.display = 'block';
+                    emailHelp.classList.add('hidden');
+                }
+            });
+            
+            // Validation on blur (when user leaves the field)
+            loginInput.addEventListener('blur', function() {
+                const email = loginInput.value.trim();
+                if (email && !isValidEmail(email)) {
+                    loginInput.classList.add('error');
+                    emailError.textContent = 'Пожалуйста, введите корректный email адрес';
+                    emailError.style.display = 'block';
+                    emailHelp.classList.add('hidden');
+                }
+            });
+            
+            registerForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(registerForm);
+                const data = Object.fromEntries(formData.entries());
+                
+                // Validate email format
+                if (!isValidEmail(data.login)) {
+                    showAlert('Пожалуйста, введите корректный email адрес', 'error');
+                    return;
+                }
+                
+                // Validate passwords match
+                if (data.password !== data.confirm_password) {
+                    showAlert('Пароли не совпадают', 'error');
+                    return;
+                }
+                
+                // Remove confirm_password from data
+                delete data.confirm_password;
+                
+                // Convert flat to number
+                data.flat = parseInt(data.flat);
+                
+                // Set is_admin to false for regular registration
+                data.is_admin = false;
+                
+                // Show loading state
+                registerBtn.disabled = true;
+                registerText.classList.add('hidden');
+                registerSpinner.classList.remove('hidden');
+                
+                try {
+                    const response = await fetch('/auth/create_account', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        showAlert('Аккаунт успешно создан! Теперь вы можете войти в систему.', 'success');
+                        
+                        // Redirect to login after 2 seconds
+                        setTimeout(() => {
+                            window.location.href = '/static/login.html';
+                        }, 2000);
+                    } else {
+                        // Handle validation errors from server
+                        if (result.detail && Array.isArray(result.detail)) {
+                            // Pydantic validation errors
+                            const emailError = result.detail.find(err => 
+                                err.loc && err.loc.includes('login') && err.type === 'value_error.email'
+                            );
+                            if (emailError) {
+                                showAlert('Неверный формат email адреса', 'error');
+                            } else {
+                                showAlert(result.detail[0].msg || 'Ошибка валидации данных', 'error');
+                            }
+                        } else {
+                            showAlert(result.detail || 'Ошибка создания аккаунта', 'error');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Registration error:', error);
+                    showAlert('Произошла ошибка при создании аккаунта', 'error');
+                } finally {
+                    // Hide loading state
+                    registerBtn.disabled = false;
+                    registerText.classList.remove('hidden');
+                    registerSpinner.classList.add('hidden');
+                }
+            });
+            
+            function showAlert(message, type) {
+                alertContainer.innerHTML = `
+                    <div class="alert alert-${type}">
+                        ${message}
+                    </div>
+                `;
+                
+                // Auto-hide success messages
+                if (type === 'success') {
+                    setTimeout(() => {
+                        alertContainer.innerHTML = '';
+                    }, 5000);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

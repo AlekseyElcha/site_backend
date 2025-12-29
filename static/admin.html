@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ панель - Chat Application</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/admin.css">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>Админ панель</h1>
+            <nav class="nav">
+                <a href="/static/admin.html" class="active">Чаты</a>
+                <a href="/static/profile.html">Профиль</a>
+                <a href="#" id="logoutBtn">Выход</a>
+            </nav>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="user-info" id="userInfo">
+            <div>
+                <span class="user-name" id="userName">Загрузка...</span>
+                <span class="user-role admin" id="userRole">Администратор</span>
+            </div>
+            <div>
+                <span class="status" id="connectionStatus"></span>
+                <span id="connectionText">Подключение...</span>
+            </div>
+        </div>
+
+        <div class="admin-layout">
+            <!-- Users sidebar -->
+            <div class="users-sidebar">
+                <div class="sidebar-header">
+                    <h3>Пользователи</h3>
+                    <button class="btn btn-secondary" id="refreshUsersBtn">Обновить</button>
+                </div>
+                
+                <div class="users-list" id="usersList">
+                    <div class="loading-message">Загрузка пользователей...</div>
+                </div>
+                
+                <div class="sidebar-footer">
+                    <button class="btn btn-success btn-full" id="broadcastBtn">Рассылка</button>
+                    <button class="btn btn-info btn-full mt-1" id="clearCacheBtn">Очистить кэш</button>
+                    <button class="btn btn-danger btn-full mt-1" id="resetDbBtn">Сброс БД</button>
+                    
+                    <!-- Debug Panel -->
+                    <div style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; font-size: 12px;">
+                        <strong>Отладка:</strong><br>
+                        <div id="debugInfo">Загрузка...</div>
+                        <button onclick="updateDebugInfo()" style="margin-top: 5px; padding: 2px 8px; font-size: 11px;">Обновить</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat area -->
+            <div class="chat-area">
+                <div class="chat-header">
+                    <h3 id="chatTitle">Выберите пользователя для чата</h3>
+                    <div class="chat-controls">
+                        <button class="btn btn-secondary" id="loadHistoryBtn" disabled>Загрузить историю</button>
+                        <button class="btn btn-info" id="refreshChatBtn" disabled>Обновить чат</button>
+                        <button class="btn btn-primary" id="userInfoBtn" disabled>Информация о пользователе</button>
+                        <button class="btn btn-warning" id="archiveBtn" disabled>Архивировать беседу</button>
+                    </div>
+                </div>
+                
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message-info">
+                        Выберите пользователя из списка слева для начала общения.
+                    </div>
+                </div>
+                
+                <div class="chat-input">
+                    <div class="input-group">
+                        <textarea 
+                            id="messageInput" 
+                            placeholder="Выберите пользователя для отправки сообщения..." 
+                            rows="2"
+                            maxlength="1000"
+                            disabled
+                        ></textarea>
+                        <button class="btn" id="sendBtn" disabled>
+                            <span id="sendText">Отправить</span>
+                            <span id="sendSpinner" class="loading hidden"></span>
+                        </button>
+                    </div>
+                    <div class="input-info">
+                        <span id="charCount">0/1000</span>
+                        <span id="selectedUser" class="hidden">Кому: <strong id="selectedUserName"></strong></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Broadcast Modal -->
+    <div id="broadcastModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Рассылка сообщения</h3>
+                <button class="modal-close" id="closeBroadcastModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="broadcastMessage">Сообщение для рассылки:</label>
+                    <textarea 
+                        id="broadcastMessage" 
+                        placeholder="Введите сообщение для всех пользователей..."
+                        rows="4"
+                        maxlength="1000"
+                    ></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelBroadcast">Отмена</button>
+                <button class="btn btn-success" id="sendBroadcast">Отправить всем</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset DB Modal -->
+    <div id="resetDbModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Сброс базы данных</h3>
+                <button class="modal-close" id="closeResetDbModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Внимание!</strong> Эта операция удалит все данные из базы данных без возможности восстановления!</p>
+                <p>Вы уверены, что хотите продолжить?</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelResetDb">Отмена</button>
+                <button class="btn btn-danger" id="confirmResetDb">Да, сбросить БД!</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Info Modal -->
+    <div id="userInfoModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Информация о пользователе</h3>
+                <button class="modal-close" id="closeUserInfoModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="userInfoContent">
+                    <div class="loading-message">Загрузка информации...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="closeUserInfo">Закрыть</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Archive Conversation Modal -->
+    <div id="archiveModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Архивирование беседы</h3>
+                <button class="modal-close" id="closeArchiveModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Внимание!</strong> Вы собираетесь архивировать беседу с пользователем <span id="archiveUserName"></span>.</p>
+                <p>Архивированные сообщения будут скрыты из обычного просмотра, но останутся в базе данных.</p>
+                <p>Вы сможете разархивировать беседу в любое время.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelArchive">Отмена</button>
+                <button class="btn btn-warning" id="confirmArchive">Архивировать</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/timezone.js"></script>
+    <script src="/static/js/websocket.js"></script>
+    <script src="/static/js/admin.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check authentication
+            if (!checkAuth()) {
+                window.location.href = '/static/login.html';
+                return;
+            }
+            
+            const userData = getUserData();
+            if (!userData.is_admin) {
+                window.location.href = '/static/chat.html';
+                return;
+            }
+            
+            // Initialize admin panel
+            initializeAdminPanel();
+        });
+    </script>
+</body>
+</html>

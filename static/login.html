@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход - Chat Application</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>Chat Application</h1>
+            <nav class="nav">
+                <a href="/static/index.html">Главная</a>
+                <a href="/static/login.html" class="active">Вход</a>
+            </nav>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="form-container">
+            <h2 class="text-center mb-3">Вход в систему</h2>
+            
+            <div id="alert-container"></div>
+            
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="login">Email:</label>
+                    <input type="email" id="login" name="login" required placeholder="example@domain.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Пароль:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                
+                <button type="submit" class="btn btn-full" id="loginBtn">
+                    <span id="loginText">Войти</span>
+                    <span id="loginSpinner" class="loading hidden"></span>
+                </button>
+            </form>
+            
+            <div class="text-center mt-3">
+                <p><small>Нет аккаунта?</small></p>
+                <a href="/static/register.html" class="btn btn-secondary">Создать аккаунт</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/password-toggle.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if already logged in
+            const token = localStorage.getItem('authToken');
+            const userData = localStorage.getItem('userData');
+            
+            if (token && userData) {
+                try {
+                    const user = JSON.parse(userData);
+                    if (user.is_admin) {
+                        window.location.href = '/static/admin.html';
+                    } else {
+                        window.location.href = '/static/chat.html';
+                    }
+                    return;
+                } catch (e) {
+                    localStorage.removeItem('authToken');
+                    localStorage.removeItem('userData');
+                }
+            }
+            
+            // Handle login form
+            const loginForm = document.getElementById('loginForm');
+            const loginBtn = document.getElementById('loginBtn');
+            const loginText = document.getElementById('loginText');
+            const loginSpinner = document.getElementById('loginSpinner');
+            const alertContainer = document.getElementById('alert-container');
+            
+            loginForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const login = document.getElementById('login').value;
+                const password = document.getElementById('password').value;
+                
+                if (!login || !password) {
+                    showAlert('Пожалуйста, заполните все поля', 'error');
+                    return;
+                }
+                
+                // Validate email format
+                if (!isValidEmail(login)) {
+                    showAlert('Пожалуйста, введите корректный email адрес', 'error');
+                    return;
+                }
+                
+                // Show loading state
+                loginBtn.disabled = true;
+                loginText.classList.add('hidden');
+                loginSpinner.classList.remove('hidden');
+                
+                try {
+                    // Use the new validation function
+                    const result = await loginUserWithValidation(login, password);
+                    
+                    if (result.success) {
+                        showAlert('Вход выполнен успешно! Перенаправление...', 'success');
+                        
+                        // Redirect based on user role
+                        setTimeout(() => {
+                            if (result.user.is_admin) {
+                                window.location.href = '/static/admin.html';
+                            } else {
+                                window.location.href = '/static/chat.html';
+                            }
+                        }, 1000);
+                    } else {
+                        showAlert(result.message || 'Ошибка входа', 'error');
+                    }
+                } catch (error) {
+                    console.error('Login error:', error);
+                    showAlert(error.message || 'Произошла ошибка при входе в систему', 'error');
+                } finally {
+                    // Hide loading state
+                    loginBtn.disabled = false;
+                    loginText.classList.remove('hidden');
+                    loginSpinner.classList.add('hidden');
+                }
+            });
+            
+            function showAlert(message, type) {
+                alertContainer.innerHTML = `
+                    <div class="alert alert-${type}">
+                        ${message}
+                    </div>
+                `;
+                
+                // Auto-hide success messages
+                if (type === 'success') {
+                    setTimeout(() => {
+                        alertContainer.innerHTML = '';
+                    }, 3000);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

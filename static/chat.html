@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Чат - Chat Application</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/chat.css">
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>Chat Application</h1>
+            <nav class="nav">
+                <a href="/static/chat.html" class="active">Чат</a>
+                <a href="/static/profile.html">Профиль</a>
+                <a href="#" id="logoutBtn">Выход</a>
+            </nav>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="user-info" id="userInfo">
+            <div>
+                <span class="user-name" id="userName">Загрузка...</span>
+                <span class="user-role" id="userRole">Пользователь</span>
+            </div>
+            <div>
+                <span class="status" id="connectionStatus"></span>
+                <span id="connectionText">Подключение...</span>
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <div class="chat-header">
+                <h3>Чат с администратором</h3>
+                <div class="chat-controls">
+                    <button class="btn btn-secondary" id="loadHistoryBtn">Загрузить историю</button>
+                </div>
+            </div>
+            
+            <div class="chat-messages" id="chatMessages">
+                <div class="message-info">
+                    Добро пожаловать в чат! Здесь вы можете задавать свои вопросы и общаться с администраторами.
+                </div>
+            </div>
+            
+            <div class="chat-input">
+                <div class="input-group">
+                    <textarea 
+                        id="messageInput" 
+                        placeholder="Введите ваше сообщение..." 
+                        rows="2"
+                        maxlength="1000"
+                    ></textarea>
+                    <button class="btn" id="sendBtn" disabled>
+                        <span id="sendText">Отправить</span>
+                        <span id="sendSpinner" class="loading hidden"></span>
+                    </button>
+                </div>
+                <div class="input-info">
+                    <span id="charCount">0/1000</span>
+                    <span id="typingIndicator" class="hidden">Печатает...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/timezone.js"></script>
+    <script src="/static/js/websocket.js"></script>
+    <script src="/static/js/chat.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check authentication
+            if (!checkAuth()) {
+                window.location.href = '/static/login.html';
+                return;
+            }
+            
+            const userData = getUserData();
+            if (userData.is_admin) {
+                window.location.href = '/static/admin.html';
+                return;
+            }
+            
+            // Initialize chat
+            initializeUserChat();
+        });
+    </script>
+</body>
+</html>
