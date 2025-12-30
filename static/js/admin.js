@@ -511,6 +511,22 @@ async function updateUsersList(users) {
         !archivedUsers.some(archived => archived.user_id === user.user_id)
     );
     
+    // Sort active users by last activity (most recent first)
+    activeUsers.sort((a, b) => {
+        const aHistory = conversationHistory[a.user_id] || [];
+        const bHistory = conversationHistory[b.user_id] || [];
+        
+        const aLastMessage = aHistory.length > 0 ? new Date(aHistory[aHistory.length - 1].timestamp) : new Date(0);
+        const bLastMessage = bHistory.length > 0 ? new Date(bHistory[bHistory.length - 1].timestamp) : new Date(0);
+        
+        // Connected users get priority, then by last message time
+        if (a.connected !== b.connected) {
+            return b.connected - a.connected; // Connected first
+        }
+        
+        return bLastMessage - aLastMessage; // Most recent first
+    });
+    
     const totalUsers = activeUsers.length + archivedUsers.length;
     
     if (totalUsers === 0) {
@@ -527,7 +543,7 @@ async function updateUsersList(users) {
     console.log(`📝 Rendering ${activeUsers.length} active + ${archivedUsers.length} archived users`);
     usersList.innerHTML = '';
     
-    // Add active users first
+    // Add active users first (sorted by activity)
     activeUsers.forEach((user, index) => {
         console.log(`👤 Creating active user ${index + 1}:`, user);
         
@@ -583,6 +599,12 @@ async function updateUsersList(users) {
         const connectedUser = connectedUsers.find(u => u.user_id === user.user_id);
         const isConnected = connectedUser ? connectedUser.connected : false;
         
+        // Show unread count for archived conversations
+        const unreadCount = user.unread_count || 0;
+        const unreadBadge = unreadCount > 0 ? 
+            `<div class="unread-badge archived-unread">${unreadCount}</div>` : 
+            `<div class="unread-badge hidden">0</div>`;
+        
         userEl.innerHTML = `
             <span class="status archived-status">📁</span>
             <div class="user-info">
@@ -592,6 +614,7 @@ async function updateUsersList(users) {
                     <div class="user-status archived-status-text">Архивировано</div>
                 </div>
             </div>
+            ${unreadBadge}
             <div class="archive-indicator">📁</div>
         `;
         

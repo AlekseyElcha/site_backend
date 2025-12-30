@@ -64,19 +64,8 @@ class ConnectionManager:
             "timestamp": get_moscow_time_iso()
         }
         
-        # Send to online admins
-        for user_id, websocket in self.active_connections.items():
-            user_data = self.user_info.get(user_id, {})
-            if user_data.get('is_admin', False):
-                try:
-                    await websocket.send_text(json.dumps(message_data))
-                    admin_count += 1
-                except Exception as e:
-                    logger.error(f"Failed to send message to admin {user_id}: {e}")
-                    self.disconnect(user_id)
-        
-        # If no online admins and we have a session, save message for offline admins
-        if admin_count == 0 and session:
+        # ALWAYS save message to database first
+        if session:
             try:
                 from websocket.message_manager import message_manager
                 # Get all admin users
@@ -92,13 +81,24 @@ class ConnectionManager:
                     await message_manager.save_message(
                         session, sender_id, admin_login, message, "user_message"
                     )
-                    logger.info(f"Saved offline message from {sender_id} to admin {admin_login}")
+                    logger.info(f"Saved message from {sender_id} to admin {admin_login}")
                 
             except Exception as e:
-                logger.error(f"Failed to save offline message to admins: {e}")
+                logger.error(f"Failed to save message to database: {e}")
         
-        logger.info(f"Message from {sender_id} sent to {admin_count} online admins")
-        return admin_count > 0 or session is not None
+        # Send to online admins
+        for user_id, websocket in self.active_connections.items():
+            user_data = self.user_info.get(user_id, {})
+            if user_data.get('is_admin', False):
+                try:
+                    await websocket.send_text(json.dumps(message_data))
+                    admin_count += 1
+                except Exception as e:
+                    logger.error(f"Failed to send message to admin {user_id}: {e}")
+                    self.disconnect(user_id)
+        
+        logger.info(f"Message from {sender_id} sent to {admin_count} online admins and saved to database")
+        return True  # Always return True since we saved to database
     
     async def send_to_user(self, message: str, user_id: str, sender_id: str = "admin", session=None):
         """Send a message from admin to a specific user"""
@@ -112,37 +112,40 @@ class ConnectionManager:
         
         success = False
         
-        # Try to send to online user
-        if user_id in self.active_connections:
-            success = await self.send_personal_message(json.dumps(message_data), user_id)
-            
-            # Also send copy to admin for history (if sender is admin)
-            if success and sender_id != user_id:
-                history_data = message_data.copy()
-                history_data["type"] = "admin_sent"
-                history_data["to"] = user_id
-                history_data["to_name"] = self._get_user_display_name(user_id)
-                
-                # Send to all admins
-                for admin_id, websocket in self.active_connections.items():
-                    admin_data = self.user_info.get(admin_id, {})
-                    if admin_data.get('is_admin', False):
-                        try:
-                            await websocket.send_text(json.dumps(history_data))
-                        except Exception as e:
-                            logger.error(f"Failed to send history to admin {admin_id}: {e}")
-        
-        # If user is offline or sending failed, save message to database
-        if not success and session:
+        # ALWAYS save message to database first
+        if session:
             try:
                 from websocket.message_manager import message_manager
                 await message_manager.save_message(
                     session, sender_id, user_id, message, "admin_message"
                 )
-                logger.info(f"Saved offline message from {sender_id} to user {user_id}")
+                logger.info(f"Saved message from {sender_id} to user {user_id}")
                 success = True
             except Exception as e:
-                logger.error(f"Failed to save offline message: {e}")
+                logger.error(f"Failed to save message to database: {e}")
+        
+        # Try to send to online user
+        if user_id in self.active_connections:
+            try:
+                await self.send_personal_message(json.dumps(message_data), user_id)
+                
+                # Also send copy to admin for history (if sender is admin)
+                if sender_id != user_id:
+                    history_data = message_data.copy()
+                    history_data["type"] = "admin_sent"
+                    history_data["to"] = user_id
+                    history_data["to_name"] = self._get_user_display_name(user_id)
+                    
+                    # Send to all admins
+                    for admin_id, websocket in self.active_connections.items():
+                        admin_data = self.user_info.get(admin_id, {})
+                        if admin_data.get('is_admin', False):
+                            try:
+                                await websocket.send_text(json.dumps(history_data))
+                            except Exception as e:
+                                logger.error(f"Failed to send history to admin {admin_id}: {e}")
+            except Exception as e:
+                logger.error(f"Failed to send message to online user {user_id}: {e}")
         
         return success
     

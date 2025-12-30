@@ -150,19 +150,29 @@ async def archive_conversation(
         session: SessionDep
     ):
     """Archive all messages in conversation with a user"""
-    from sqlalchemy import update, or_
+    from sqlalchemy import update, or_, and_
     from schemas.schemas import MessageModel
     
-    # Get current admin info from token
-    current_user = Depends(security.access_token_required)
-    
     try:
-        # Update all messages between admin and user to archived
+        # Update all messages between ANY admin and this user to archived
+        # This handles multiple admin conversations with the same user
+        admin_query = select(UserModel.login).where(UserModel.is_admin == True)
+        admin_result = await session.execute(admin_query)
+        admin_logins = [row[0] for row in admin_result.fetchall()]
+        
+        if not admin_logins:
+            raise HTTPException(status_code=404, detail="Администраторы не найдены")
+        
+        # Create conditions for all admin-user combinations
+        conditions = []
+        for admin_login in admin_logins:
+            conditions.extend([
+                and_(MessageModel.sender_id == admin_login, MessageModel.recipient_id == user_login),
+                and_(MessageModel.sender_id == user_login, MessageModel.recipient_id == admin_login)
+            ])
+        
         update_query = update(MessageModel).where(
-            or_(
-                (MessageModel.sender_id == user_login),
-                (MessageModel.recipient_id == user_login)
-            )
+            or_(*conditions)
         ).values(is_archived=True)
         
         result = await session.execute(update_query)
@@ -184,7 +194,7 @@ async def archive_conversation(
 @router.get("/archived_conversations", dependencies=[Depends(security.access_token_required), Depends(admin_required)])
 async def get_archived_conversations(session: SessionDep):
     """Get list of users with archived conversations"""
-    from sqlalchemy import select, func, distinct
+    from sqlalchemy import select, func, distinct, and_
     from schemas.schemas import MessageModel, UserModel
     
     try:
@@ -212,10 +222,22 @@ async def get_archived_conversations(session: SessionDep):
             user = user_result.scalar_one_or_none()
             
             if user and not user.is_admin:  # Exclude admins
+                # Get unread message count for this user
+                unread_query = select(func.count(MessageModel.id)).where(
+                    and_(
+                        MessageModel.sender_id == login,
+                        MessageModel.is_read == False,
+                        MessageModel.is_archived == True  # Count unread archived messages
+                    )
+                )
+                unread_result = await session.execute(unread_query)
+                unread_count = unread_result.scalar() or 0
+                
                 archived_users.append({
                     "user_id": user.login,
                     "name": f"{user.first_name} {user.last_name}",
-                    "is_archived": True
+                    "is_archived": True,
+                    "unread_count": unread_count
                 })
         
         return {
@@ -233,16 +255,28 @@ async def unarchive_conversation(
         session: SessionDep
     ):
     """Unarchive all messages in conversation with a user"""
-    from sqlalchemy import update, or_
+    from sqlalchemy import update, or_, and_
     from schemas.schemas import MessageModel
     
     try:
-        # Update all messages between admin and user to not archived
+        # Update all messages between ANY admin and this user to not archived
+        admin_query = select(UserModel.login).where(UserModel.is_admin == True)
+        admin_result = await session.execute(admin_query)
+        admin_logins = [row[0] for row in admin_result.fetchall()]
+        
+        if not admin_logins:
+            raise HTTPException(status_code=404, detail="Администраторы не найдены")
+        
+        # Create conditions for all admin-user combinations
+        conditions = []
+        for admin_login in admin_logins:
+            conditions.extend([
+                and_(MessageModel.sender_id == admin_login, MessageModel.recipient_id == user_login),
+                and_(MessageModel.sender_id == user_login, MessageModel.recipient_id == admin_login)
+            ])
+        
         update_query = update(MessageModel).where(
-            or_(
-                (MessageModel.sender_id == user_login),
-                (MessageModel.recipient_id == user_login)
-            )
+            or_(*conditions)
         ).values(is_archived=False)
         
         result = await session.execute(update_query)
